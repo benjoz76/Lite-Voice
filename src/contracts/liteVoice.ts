@@ -93,11 +93,10 @@ export const liteVoiceAbi = [
   },
 ] as const;
 
-const configuredAddress = import.meta.env.VITE_LITEVOICE_ADDRESS?.trim();
+const defaultTestnetAddress = '0x09ff4b456ffe359c005e536aef4a9343a0198395';
+const configuredAddress = import.meta.env.VITE_LITEVOICE_ADDRESS?.trim() || defaultTestnetAddress;
 
-export const liteVoiceAddress = configuredAddress
-  ? getAddress(configuredAddress)
-  : undefined;
+export const liteVoiceAddress = getAddress(configuredAddress);
 
 export const publicClient = createPublicClient({
   chain: liteForge,
