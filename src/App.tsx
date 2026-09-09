@@ -226,6 +226,22 @@ function App() {
     }
   }
 
+  async function disconnectWallet() {
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_revokePermissions',
+          params: [{ eth_accounts: {} }],
+        });
+      } catch {
+        // Some injected wallets do not implement permission revocation.
+      }
+    }
+    setAccount('');
+    setPendingVote(null);
+    setNotice({ tone: 'success', text: 'Wallet disconnected from Lite Voice.' });
+  }
+
   function chooseVote(choice: VoteChoice) {
     if (!account) {
       setNotice({ tone: 'info', text: 'Connect a wallet before casting a public signal.' });
@@ -332,9 +348,14 @@ function App() {
           <i aria-hidden="true" />
           LITEFORGE / 4441
         </div>
-        <button className="wallet-button" type="button" onClick={connectWallet}>
-          {account ? shortAddress(account) : 'CONNECT WALLET'}
-          <span aria-hidden="true">↗</span>
+        <button
+          className="wallet-button"
+                   type="button"
+          onClick={account ? disconnectWallet : connectWallet}
+          title={account ? 'Disconnect wallet' : 'Connect wallet'}
+        >
+          {account ? `${shortAddress(account)} / DISCONNECT` : 'CONNECT WALLET'}
+          <span aria-hidden="true">{account ? '×' : '↗'}</span>
         </button>
       </header>
 
