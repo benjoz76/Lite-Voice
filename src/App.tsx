@@ -187,6 +187,12 @@ function App() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), 2800);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
   const visible = useMemo(
     () => proposals.filter((proposal) => filter === 'all' || proposal.status === filter),
     [filter, proposals],
@@ -220,7 +226,7 @@ function App() {
         });
       }
       setAccount(accounts[0] ?? '');
-      setNotice({ tone: 'success', text: 'Wallet connected to LitVM LiteForge.' });
+      setNotice({ tone: 'success', text: 'Wallet is connected.' });
     } catch (error) {
       setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Wallet connection was rejected.' });
     }
@@ -239,7 +245,7 @@ function App() {
     }
     setAccount('');
     setPendingVote(null);
-    setNotice({ tone: 'success', text: 'Wallet disconnected from Lite Voice.' });
+    setNotice({ tone: 'success', text: 'Wallet is disconnected.' });
   }
 
   function chooseVote(choice: VoteChoice) {
@@ -282,7 +288,7 @@ function App() {
       localStorage.setItem('litevoice-demo-votes', JSON.stringify(next));
       setPendingVote(null);
       await refreshOnchainProposals();
-      setNotice({ tone: 'success', text: `Vote confirmed on LitVM: ${hash.slice(0, 10)}…` });
+      setNotice({ tone: 'success', text: `Vote ${choice.toUpperCase()} submitted successfully.` });
     } catch (error) {
       setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Vote transaction failed.' });
     } finally {
@@ -324,7 +330,7 @@ function App() {
       await publicClient.waitForTransactionReceipt({ hash });
       setCreateOpen(false);
       await refreshOnchainProposals();
-      setNotice({ tone: 'success', text: `Proposal confirmed on LitVM: ${hash.slice(0, 10)}…` });
+      setNotice({ tone: 'success', text: 'Proposal created successfully.' });
     } catch (error) {
       setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Proposal transaction failed.' });
     } finally {
@@ -499,8 +505,8 @@ function App() {
       </main>
 
       <footer>
-        <span>LITE VOICE / TESTNET CONTRIBUTION</span>
-        <span>{liteVoiceAddress ? 'ON-CHAIN CONTRACT CONNECTED' : 'CONTRACT ADDRESS REQUIRED'}</span>
+        <span>LITE VOICE / TESTNET</span>
+        <span>POWERED BY LITVM</span>
         <a href="https://docs.litvm.com/" target="_blank" rel="noreferrer">LITVM DOCS ↗</a>
       </footer>
 
