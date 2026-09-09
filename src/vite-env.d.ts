@@ -9,3 +9,11 @@ interface EthereumProvider {
 interface Window {
   ethereum?: EthereumProvider;
 }
+
+interface ImportMetaEnv {
+  readonly VITE_LITEVOICE_ADDRESS?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
