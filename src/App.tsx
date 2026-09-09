@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { createWalletClient, custom } from 'viem';
+import { liteForge, liteVoiceAbi, liteVoiceAddress, publicClient } from './contracts/liteVoice';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 type ProposalStatus = 'active' | 'passed' | 'rejected';
@@ -124,9 +126,63 @@ function App() {
     }
   });
   const [notice, setNotice] = useState<{ tone: 'info' | 'success' | 'error'; text: string } | null>(null);
+  const [txPending, setTxPending] = useState(false);
+
+  async function refreshOnchainProposals() {
+    if (!liteVoiceAddress) return;
+    try {
+      const count = await publicClient.readContract({
+        address: liteVoiceAddress,
+        abi: liteVoiceAbi,
+        functionName: 'proposalCount',
+      });
+      const ids = Array.from({ length: Number(count) }, (_, index) => BigInt(index + 1)).reverse();
+      const records = await Promise.all(ids.map(async (proposalId): Promise<Proposal> => {
+        const result = await publicClient.readContract({
+          address: liteVoiceAddress,
+          abi: liteVoiceAbi,
+          functionName: 'getProposal',
+          args: [proposalId],
+        });
+        const [proposer, title, summary, category, createdAt, deadline, forVotes, againstVotes, abstainVotes] = result;
+        const closesAt = Number(deadline) * 1000;
+        const status: ProposalStatus = Date.now() < closesAt
+          ? 'active'
+          : forVotes > againstVotes ? 'passed' : 'rejected';
+        const number = Number(proposalId);
+        return {
+          id: `LV-${String(number).padStart(3, '0')}`,
+          number,
+          title,
+          summary,
+          body: summary,
+          author: shortAddress(proposer),
+          category,
+          createdAt: Number(createdAt) * 1000,
+          closesAt,
+          status,
+          votes: {
+            for: Number(forVotes),
+            against: Number(againstVotes),
+            abstain: Number(abstainVotes),
+          },
+        };
+      }));
+      setProposals(records);
+      setSelectedId((current) => records.some((proposal) => proposal.id === current)
+        ? current
+        : records[0]?.id ?? '');
+    } catch (error) {
+      setNotice({
+        tone: 'error',
+        text: error instanceof Error ? `Contract read failed: ${error.message}` : 'Contract read failed.',
+      });
+    }
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    if (liteVoiceAddress) void refreshOnchainProposals();
     return () => window.clearInterval(timer);
   }, []);
 
@@ -182,27 +238,52 @@ function App() {
     setPendingVote(choice);
   }
 
-  function confirmVote() {
-    if (!selected || !pendingVote) return;
+  async function confirmVote() {
+    if (!selected || !pendingVote || !account) return;
+    if (!liteVoiceAddress || !window.ethereum) {
+      setPendingVote(null);
+      setNotice({ tone: 'error', text: 'Contract address is not configured. Set VITE_LITEVOICE_ADDRESS after deployment.' });
+      return;
+    }
+
     const choice = pendingVote;
-    setProposals((current) => current.map((proposal) => (
-      proposal.id === selected.id
-        ? { ...proposal, votes: { ...proposal.votes, [choice]: proposal.votes[choice] + 1 } }
-        : proposal
-    )));
-    const next = { ...voted, [selected.id]: choice };
-    setVoted(next);
-    localStorage.setItem('litevoice-demo-votes', JSON.stringify(next));
-    setPendingVote(null);
-    setNotice({ tone: 'success', text: `Demo vote recorded: ${choice.toUpperCase()}. Contract broadcasting is intentionally disabled.` });
+    const choiceCode: Record<VoteChoice, number> = { for: 0, against: 1, abstain: 2 };
+    setTxPending(true);
+    try {
+      const walletClient = createWalletClient({ chain: liteForge, transport: custom(window.ethereum as never) });
+      const hash = await walletClient.writeContract({
+        account: account as `0x${string}`,
+        address: liteVoiceAddress,
+        abi: liteVoiceAbi,
+        functionName: 'vote',
+        args: [BigInt(selected.number), choiceCode[choice]],
+      });
+      setNotice({ tone: 'info', text: `Vote submitted: ${hash.slice(0, 10)}… Waiting for confirmation.` });
+      await publicClient.waitForTransactionReceipt({ hash });
+      const next = { ...voted, [selected.id]: choice };
+      setVoted(next);
+      localStorage.setItem('litevoice-demo-votes', JSON.stringify(next));
+      setPendingVote(null);
+      await refreshOnchainProposals();
+      setNotice({ tone: 'success', text: `Vote confirmed on LitVM: ${hash.slice(0, 10)}…` });
+    } catch (error) {
+      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Vote transaction failed.' });
+    } finally {
+      setTxPending(false);
+    }
   }
 
-  function createProposal(event: FormEvent<HTMLFormElement>) {
+  async function createProposal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!account) {
       setNotice({ tone: 'info', text: 'Connect a wallet before creating a proposal.' });
       return;
     }
+    if (!liteVoiceAddress || !window.ethereum) {
+      setNotice({ tone: 'error', text: 'Contract address is not configured. Set VITE_LITEVOICE_ADDRESS after deployment.' });
+      return;
+    }
+
     const data = new FormData(event.currentTarget);
     const title = String(data.get('title') ?? '').trim();
     const summary = String(data.get('summary') ?? '').trim();
@@ -211,25 +292,27 @@ function App() {
       setNotice({ tone: 'error', text: 'Use at least 12 characters for the title and 30 for the context.' });
       return;
     }
-    const nextNumber = Math.max(...proposals.map((proposal) => proposal.number)) + 1;
-    const proposal: Proposal = {
-      id: `LV-${String(nextNumber).padStart(3, '0')}`,
-      number: nextNumber,
-      title,
-      summary,
-      body: summary,
-      author: shortAddress(account),
-      category,
-      createdAt: Date.now(),
-      closesAt: Date.now() + 72 * HOUR,
-      status: 'active',
-      votes: { for: 0, against: 0, abstain: 0 },
-    };
-    setProposals((current) => [proposal, ...current]);
-    setSelectedId(proposal.id);
-    setFilter('all');
-    setCreateOpen(false);
-    setNotice({ tone: 'success', text: 'Draft added locally for interface testing. No on-chain transaction was sent.' });
+
+    setTxPending(true);
+    try {
+      const walletClient = createWalletClient({ chain: liteForge, transport: custom(window.ethereum as never) });
+      const hash = await walletClient.writeContract({
+        account: account as `0x${string}`,
+        address: liteVoiceAddress,
+        abi: liteVoiceAbi,
+        functionName: 'createProposal',
+        args: [title, summary, category],
+      });
+      setNotice({ tone: 'info', text: `Proposal submitted: ${hash.slice(0, 10)}… Waiting for confirmation.` });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setCreateOpen(false);
+      await refreshOnchainProposals();
+      setNotice({ tone: 'success', text: `Proposal confirmed on LitVM: ${hash.slice(0, 10)}…` });
+    } catch (error) {
+      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Proposal transaction failed.' });
+    } finally {
+      setTxPending(false);
+    }
   }
 
   return (
@@ -395,7 +478,7 @@ function App() {
 
       <footer>
         <span>LITE VOICE / TESTNET CONTRIBUTION</span>
-        <span>INTERFACE PROTOTYPE · CONTRACT NOT CONNECTED</span>
+        <span>{liteVoiceAddress ? 'ON-CHAIN CONTRACT CONNECTED' : 'CONTRACT ADDRESS REQUIRED'}</span>
         <a href="https://docs.litvm.com/" target="_blank" rel="noreferrer">LITVM DOCS ↗</a>
       </footer>
 
@@ -428,8 +511,8 @@ function App() {
                 </select>
               </label>
               <div className="fixed-rule"><span>VOTING PERIOD</span><b>72 HOURS / FIXED</b></div>
-              <button className="primary-action" type="submit">PUBLISH DRAFT <span>↗</span></button>
-              <p className="form-note">Prototype mode: this creates local interface data and never requests a transaction.</p>
+              <button className="primary-action" type="submit" disabled={txPending}>{txPending ? 'WAITING FOR WALLET…' : 'PUBLISH ON-CHAIN'} <span>↗</span></button>
+              <p className="form-note">Publishing creates a LitVM transaction and requires zkLTC for gas.</p>
             </form>
           </section>
         </div>
@@ -440,10 +523,10 @@ function App() {
           <section className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onMouseDown={(e) => e.stopPropagation()}>
             <span className="eyebrow">FINAL CHECK / {selected.id}</span>
             <h2 id="confirm-title">Signal “{pendingVote.toUpperCase()}”?</h2>
-            <p>A wallet can only vote once. This prototype records the choice locally and will not broadcast a transaction.</p>
+            <p>A wallet can only vote once. Confirming will request a LitVM transaction and requires zkLTC for gas.</p>
             <div>
               <button type="button" onClick={() => setPendingVote(null)}>CANCEL</button>
-              <button className="primary-action" type="button" onClick={confirmVote}>CONFIRM SIGNAL <span>↗</span></button>
+              <button className="primary-action" type="button" onClick={confirmVote} disabled={txPending}>{txPending ? 'CONFIRMING…' : 'CONFIRM SIGNAL'} <span>↗</span></button>
             </div>
           </section>
         </div>
