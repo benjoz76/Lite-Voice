@@ -27,6 +27,7 @@ The interface includes an ownerless Solidity signaling contract. Once the deploy
 - Native asset: zkLTC
 - RPC: https://liteforge.rpc.caldera.xyz/http
 - Explorer: https://liteforge.explorer.caldera.xyz
+- LiteVoice contract: https://liteforge.explorer.caldera.xyz/address/0x09ff4b456ffe359c005e536aef4a9343a0198395
 
 ## Deploy the contract
 
@@ -34,7 +35,7 @@ The interface includes an ownerless Solidity signaling contract. Once the deploy
 2. Compile with Solidity `0.8.24` or a compatible `0.8.x` compiler.
 3. Connect the injected wallet to LitVM LiteForge.
 4. Deploy `LiteVoice` (the constructor requires no arguments).
-5. Copy the deployed address into `.env.local`:
+5. The current testnet deployment is configured by default. To override it after a redeploy, place the new address in `.env.local`:
 
 ```bash
 VITE_LITEVOICE_ADDRESS=0xYourDeployedContract
