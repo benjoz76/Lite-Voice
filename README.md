@@ -2,6 +2,10 @@
 
 A public proposal and on-chain community signaling interface for the LitVM LiteForge testnet.
 
+## Testnet lifecycle notice
+
+> **Lite Voice is a testnet-only project.** It was created solely for learning and contributing to the LitVM LiteForge testnet. When LitVM mainnet becomes active, the hosted application will be shut down and this repository will be archived as a historical testnet contribution. The current contract and its data will not be migrated to mainnet.
+
 ## Purpose
 
 Lite Voice is an independent learning and ecosystem contribution. It is not official LitVM governance and does not control protocol upgrades, treasury funds, or production contracts.
