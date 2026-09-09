@@ -6,15 +6,16 @@ A public proposal and on-chain community signaling interface for the LitVM LiteF
 
 Lite Voice is an independent learning and ecosystem contribution. It is not official LitVM governance and does not control protocol upgrades, treasury funds, or production contracts.
 
-The current build is an interactive frontend prototype. Wallet connection and LitVM network switching are functional; proposal creation and voting are intentionally stored only in the browser until an audited contract address and ABI are configured.
+The interface includes an ownerless Solidity signaling contract. Once the deployed address is configured, proposal creation and voting are real LitVM transactions; proposal lists and results are read directly from the contract.
 
 ## Features
 
 - Browse active, passed, and rejected public proposals
 - Inspect vote totals and proposal context
 - Connect an EVM wallet and switch to LitVM LiteForge
-- Draft proposals with a fixed 72-hour voting window
-- Test For, Against, and Abstain voting states
+- Publish proposals on-chain with a fixed 72-hour voting window
+- Cast For, Against, and Abstain transactions
+- Enforce one vote per wallet per proposal in the contract
 - Responsive brutalist-editorial interface
 - Accessible focus states and reduced-motion support
 - Vercel SPA rewrite configuration
@@ -26,6 +27,20 @@ The current build is an interactive frontend prototype. Wallet connection and Li
 - Native asset: zkLTC
 - RPC: https://liteforge.rpc.caldera.xyz/http
 - Explorer: https://liteforge.explorer.caldera.xyz
+
+## Deploy the contract
+
+1. Open `contracts/LiteVoice.sol` in Remix.
+2. Compile with Solidity `0.8.24` or a compatible `0.8.x` compiler.
+3. Connect the injected wallet to LitVM LiteForge.
+4. Deploy `LiteVoice` (the constructor requires no arguments).
+5. Copy the deployed address into `.env.local`:
+
+```bash
+VITE_LITEVOICE_ADDRESS=0xYourDeployedContract
+```
+
+Never commit a private key. The frontend only needs the public contract address.
 
 ## Run locally
 
@@ -45,9 +60,9 @@ npm run build
 
 ## Roadmap
 
-1. Deploy and verify a minimal signaling contract.
-2. Replace local demo writes with contract reads and wallet transactions.
-3. Add event indexing and transaction links.
+1. Verify the deployed signaling contract on the LiteForge explorer.
+2. Add event indexing and direct transaction links.
+3. Add pagination for large proposal histories.
 4. Add snapshot-safe eligibility rules if token-weighted voting is introduced.
 
 ## AI-assisted disclosure

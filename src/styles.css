@@ -90,6 +90,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   cursor: pointer;
 }
 .wallet-button:hover, .primary-action:hover { background: var(--ink); color: var(--paper); }
+.primary-action:disabled { cursor: wait; opacity: .62; background: var(--muted); color: white; }
 
 main { max-width: 1600px; margin: 0 auto; }
 .masthead {
