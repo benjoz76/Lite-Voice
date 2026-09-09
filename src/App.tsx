@@ -130,16 +130,17 @@ function App() {
 
   async function refreshOnchainProposals() {
     if (!liteVoiceAddress) return;
+    const contractAddress = liteVoiceAddress;
     try {
       const count = await publicClient.readContract({
-        address: liteVoiceAddress,
+        address: contractAddress,
         abi: liteVoiceAbi,
         functionName: 'proposalCount',
       });
       const ids = Array.from({ length: Number(count) }, (_, index) => BigInt(index + 1)).reverse();
       const records = await Promise.all(ids.map(async (proposalId): Promise<Proposal> => {
         const result = await publicClient.readContract({
-          address: liteVoiceAddress,
+          address: contractAddress,
           abi: liteVoiceAbi,
           functionName: 'getProposal',
           args: [proposalId],
